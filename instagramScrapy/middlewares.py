@@ -6,7 +6,7 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
-from instagramScrapy.settings import USER_AGENTS
+from instagramScrapy.settings import USER_AGENTS, PROXIES
 import random
 from twisted.internet.defer import Deferred
 from twisted.internet import reactor
@@ -106,7 +106,9 @@ class InstagramscrapyDownloaderMiddleware(object):
 
 class CustomProxyMiddleware():
     def process_request(self, request, spider):
-        request.meta['proxy'] = 'http://127.0.0.1:8123'
+        # request.meta['proxy'] = 'http://127.0.0.1:8123'
+        if PROXIES:
+            request.meta['proxy'] = 'http://' + PROXIES['http']
         return None
 
 class CutomHeaderMiddleware():
