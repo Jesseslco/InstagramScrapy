@@ -25,8 +25,8 @@ You can set proxy within setting.py
 example:
 ```python
 PROXIES = {
-    "https":"127.0.0.1:8123",
-    "http":"127.0.0.1:8123"
+    "https":"{host}:{port}", 
+    "http":"{host}:{port}"
 }
 ```
 # FeedBack
