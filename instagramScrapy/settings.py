@@ -31,13 +31,13 @@ DOWNLOADER_MIDDLEWARES = {
 ITEM_PIPELINES = {
     'instagramScrapy.pipelines.InstagramscrapyPipeline':360,
 }
-# PROXIES = {
-#     "https":"127.0.0.1:8123",
-#     "http":"127.0.0.1:8123"
-# }
+PROXIES = {
+    "https":"127.0.0.1:8123",
+    "http":"127.0.0.1:8123"
+}
 
 # Default
-PROXIES = None
+# PROXIES = None
 
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36',
