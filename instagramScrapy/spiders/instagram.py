@@ -2,15 +2,15 @@
 import scrapy
 import requests
 import random
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlencode
 from instagramScrapy.settings import PROXIES, USER_AGENTS
 from pyquery import PyQuery as pq
 import json
 from instagramScrapy.items import InstagramscrapyItem
 import re
 import os
-from urllib.parse import urljoin, urlencode
 import shutil
+
 class InstagramSpider(scrapy.Spider):
 
     name = 'instagram'
@@ -42,8 +42,11 @@ class InstagramSpider(scrapy.Spider):
             return userInput
         else:
             return urljoin(self.instagramUrl, userInput)
+    
     def urlValidation(self, url):
+
         try:
+            assert re.match('https://www.instagram.com/*', url) is not None
             if PROXIES:
                 r = requests.get(url=url, proxies=PROXIES, headers=self.headers)
             else:
@@ -66,13 +69,95 @@ class InstagramSpider(scrapy.Spider):
         else:
             self.logger.warn("Validation Failed")
             self.logger.warn("Quiting")
-    def handle_nodes(self, nodes):
+    
+    def parse_nodes(self, nodes, is_index):
+        # for node in nodes:
+        #     if node['node']['is_video']:
+        #         if node['node'].get('video_url', None):
+        #             yield scrapy.Request(url=node['node']['video_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.mp4', 'delay':3})
+        #         else:
+        #             params = {
+        #                 "query_hash": self.postHash,
+        #                 "variables": json.dumps(
+        #                         {
+        #                             "shortcode": node['node']['shortcode'],
+        #                             "child_comment_count": 3,
+        #                             "fetch_comment_count": 40,
+        #                             "parent_comment_count": 24,
+        #                             "has_threaded_comments": True,
+        #                         }),      
+        #             }
+        #             postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
+        #             yield scrapy.Request(url=postUrl, callback=self.parse_video_node, meta={'delay':3})
+        #     else:
+        #         yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.jpg', 'delay':1})
+
+        if is_index:
+            #New Update
+            for node in nodes:
+                params = {
+                    "query_hash": self.postHash,
+                    "variables": json.dumps(
+                            {
+                                "shortcode": node['node']['shortcode'],
+                                "child_comment_count": 3,
+                                "fetch_comment_count": 40,
+                                "parent_comment_count": 24,
+                                "has_threaded_comments": True,
+                            }),      
+                }
+                postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
+                if node['node']['is_video']:
+                    yield scrapy.Request(url=postUrl, callback=self.parse_node, meta={'name':node['node']['id'] + '.mp4', 'delay':5, 'is_video':True})
+                else:
+                    yield scrapy.Request(url=postUrl, callback=self.parse_node, meta={'name':node['node']['id'] + '.jpg', 'delay':2, 'is_video':False})
+        else:
+            for node in nodes:
+
+                if node['node'].get('edge_sidecar_to_children', None) is not None:
+                    for await_job in self.parse_son_node(node['node']['edge_sidecar_to_children']['edges']):
+                        yield await_job
+                if node['node']['is_video']:
+                    if node['node'].get('video_url', None):
+                        yield scrapy.Request(url=node['node']['video_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.mp4', 'delay':3})
+                    else:
+                        params = {
+                            "query_hash": self.postHash,
+                            "variables": json.dumps(
+                                    {
+                                        "shortcode": node['node']['shortcode'],
+                                        "child_comment_count": 3,
+                                        "fetch_comment_count": 40,
+                                        "parent_comment_count": 24,
+                                        "has_threaded_comments": True,
+                                    }),      
+                        }
+                        postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
+                        yield scrapy.Request(url=postUrl, callback=self.parse_video_node, meta={'delay':3})
+
+                else:
+                    yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.jpg', 'delay':1})
+
+    def parse_son_node(self, nodes):
         for node in nodes:
             if node["node"]["is_video"]:
-                yield scrapy.Request(url=node["node"]["display_url"], callback=self.parse_media, meta={'name':node["node"]["id"]+'.jpg'})
-                # yield scrapy.Request(url=node["node"]["video_url"], callback=self.parse_media, meta={'name':node["node"]["id"]+'.mp4'})
+                yield scrapy.Request(url=node['node']['video_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.mp4', 'delay':5})
             else:
-                yield scrapy.Request(url=node["node"]["display_url"], callback=self.parse_media, meta={'name':node["node"]["id"]+'.jpg'})
+                yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.jpg', 'delay':2})
+
+    def parse_node(self, response):
+        data = json.loads(response.body)
+        name = response.meta.get('name')
+        if response.meta.get('is_video'):
+            url = data["data"]["shortcode_media"]["video_url"]
+        else:
+            url = data["data"]["shortcode_media"]["display_url"]
+        yield scrapy.Request(url=url, callback=self.parse_media, meta={'name': name})
+
+        if data["data"]["shortcode_media"].get("edge_sidecar_to_children", None) is not None:
+            for await_job in self.parse_son_node(data["data"]["shortcode_media"]["edge_sidecar_to_children"]["edges"]):
+                yield await_job
+                
     def parse(self, response):
         html = response.body.decode('utf-8')
         doc = pq(html)
@@ -96,26 +181,9 @@ class InstagramSpider(scrapy.Spider):
             os.mkdir(self.STORAGE_USER_path)
             self.passID = firstBatchInfo['entry_data']['ProfilePage'][0]['graphql']['user']['id']
 
-            for node in firstBatchInfo["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"]:
-                if node['node']['is_video']:
-                    if node['node'].get('video_url', None):
-                        yield scrapy.Request(url=node['node']['video_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.mp4', 'delay':3})
-                    else:
-                        params = {
-                            "query_hash": self.postHash,
-                            "variables": json.dumps(
-                                    {
-                                        "shortcode": node['node']['shortcode'],
-                                        "child_comment_count": 3,
-                                        "fetch_comment_count": 40,
-                                        "parent_comment_count": 24,
-                                        "has_threaded_comments": True,
-                                    }),      
-                        }
-                        postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
-                        yield scrapy.Request(url=postUrl, callback=self.parse_video_node, meta={'delay':3})
-                else:
-                    yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.jpg', 'delay':1})
+            # for node in firstBatchInfo["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"]:
+            for await_job in self.parse_nodes(firstBatchInfo["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"], True):
+                yield await_job
 
             profileJS = None
             # consumerJS = None
@@ -134,7 +202,7 @@ class InstagramSpider(scrapy.Spider):
                 self.logger.warn("MissingProfileJS Or Has No Next")
         else:
             self.logger.warn("Didn't get first batch")
-    # def parseConsumerJS(self, response):
+
     def parseProfileJS(self, response):
         rawJS = response.body.decode('utf-8')
         self.rollHash = re.findall("queryId:\"([0-9a-fA-F]*?)\"", rawJS)[2]
@@ -150,30 +218,15 @@ class InstagramSpider(scrapy.Spider):
         nextBatchUrl = (self.batchQuery + urlencode(params)).replace("+", "")
         if self.rollHash:
             yield scrapy.Request(url=nextBatchUrl, callback=self.parse_batch)
+
     def parse_batch(self, response):
         data = json.loads(response.body)
         nodes = data["data"]["user"]['edge_owner_to_timeline_media']['edges']
-        for node in nodes:
-            if node['node']['is_video']:
-                if node['node'].get('video_url', None):
-                    yield scrapy.Request(url=node['node']['video_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.mp4', 'delay':3})
-                else:
-                    params = {
-                        "query_hash": self.postHash,
-                        "variables": json.dumps(
-                                {
-                                    "shortcode": node['node']['shortcode'],
-                                    "child_comment_count": 3,
-                                    "fetch_comment_count": 40,
-                                    "parent_comment_count": 24,
-                                    "has_threaded_comments": True,
-                                }),      
-                    }
-                    postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
-                    yield scrapy.Request(url=postUrl, callback=self.parse_video_node, meta={'delay':3})
-            else:
-                yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.jpg', 'delay':1})
 
+        for await_job in self.parse_nodes(nodes, False):
+            yield await_job
+
+        ## Next_Batch
         if data["data"]["user"]['edge_owner_to_timeline_media']['page_info']['has_next_page']:
             endCursor = data["data"]["user"]['edge_owner_to_timeline_media']['page_info']['end_cursor']
             params = {
@@ -185,37 +238,17 @@ class InstagramSpider(scrapy.Spider):
                 })
             }
             nextBatchUrl = (self.batchQuery + urlencode(params)).replace("+", "")
-            yield scrapy.Request(url=nextBatchUrl, callback=self.parse_batch, meta={'delay':1})
+            yield scrapy.Request(url=nextBatchUrl, callback=self.parse_batch, meta={'delay':3})
         else:
             self.logger.info("Scrapy all imgs done")
-
-    # def handle_nodes(self, nodes):
-    #     for node in nodes:
-    #         if node['node']['is_video']:
-    #             if node['node'].get('video_url', None):
-    #                 yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.mp4'})
-    #             else:
-    #                 params = {
-    #                     "query_hash": self.postHash,
-    #                     "variables": json.dumps(
-    #                             {
-    #                                 "shortcode": node['node']['shortcode'],
-    #                                 "child_comment_count": 3,
-    #                                 "fetch_comment_count": 40,
-    #                                 "parent_comment_count": 24,
-    #                                 "has_threaded_comments": True,
-    #                             }),      
-    #                 }
-    #                 postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
-    #                 yield scrapy.Request(url=postUrl, callback=self.parse_video_node)
-    #         else:
-    #             yield scrapy.Request(url=node['node']['display_url'], callback=self.parse_media, meta={'name':node['node']['id'] + '.jpg'})
 
     def parse_video_node(self, response):
         data = json.loads(response.body)
         name = data["data"]["shortcode_media"]["id"] + '.mp4'
         video_url = data["data"]["shortcode_media"]["video_url"]
         yield scrapy.Request(url=video_url, callback=self.parse_media, meta={'name': name})
+
+    ## Parse_imgs_or_videos
     def parse_media(self, response):
         item = InstagramscrapyItem()
         item["name"] = os.path.join(self.STORAGE_USER_path, response.meta.get('name'))

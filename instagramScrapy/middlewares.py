@@ -128,3 +128,13 @@ class CutomDelayMiddleware():
             reactor.callLater(delay, d.callback, None)
             return d
         return None
+
+class CutomErrorMiddleware():
+    def process_response(self, request, response, spider):
+        if response.status == 200:
+            return response
+        elif response.status == 429:
+            request.meta["delay"] += 10
+            return request
+
+
