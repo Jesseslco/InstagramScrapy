@@ -17,7 +17,7 @@ scrapy post images and videos from a user
 > https://www.instagram.com/heyimbee/ 
 > ### username
 > heyimbee
-4. If goes well, images and videos will be sent to spider/storage/{username}
+4. If goes well, images and videos will be downloaded to spider/storage/{username}
 
 
 # Proxy
