@@ -34,33 +34,34 @@ class InstagramSpider(scrapy.Spider):
             else:
                 os.mkdir(self.STORAGE_PATH)
         else:
-            os.mkdir(self.STORAGE_PATH)       
-        
+            os.mkdir(self.STORAGE_PATH)
+
     def handle_user_input(self, userInput):
         html_elements = ["https", "www.instagram.com"]
         if any([x in userInput for x in html_elements]):
             return userInput
         else:
             return urljoin(self.instagramUrl, userInput)
-    
+
     def urlValidation(self, url):
 
-        try:
-            assert re.match('https://www.instagram.com/*', url) is not None
-            if PROXIES:
-                r = requests.get(url=url, proxies=PROXIES, headers=self.headers)
-            else:
-                r = requests.get(url=url, headers=self.headers)
-        except MissingSchema as e:
-            self.logger.error("Invalid URL")
-            return False
-        except Exception as e:
-            return False
-        else:
-            if r.status_code == 200:
-                return True
-            else:
-                return False
+        # try:
+        #     assert re.match('https://www.instagram.com/*', url) is not None
+        #     if PROXIES:
+        #         r = requests.get(url=url, proxies=PROXIES, headers=self.headers)
+        #     else:
+        #         r = requests.get(url=url, headers=self.headers)
+        # except MissingSchema as e:
+        #     self.logger.error("Invalid URL")
+        #     return False
+        # except Exception as e:
+        #     return False
+        # else:
+        #     if r.status_code == 200:
+        #         return True
+        #     else:
+        #         return False
+        return True
 
     def start_requests(self):
         url = self.handle_user_input(input("URL OR USER: "))
@@ -69,7 +70,7 @@ class InstagramSpider(scrapy.Spider):
         else:
             self.logger.warn("Validation Failed")
             self.logger.warn("Quiting")
-    
+
     def parse_nodes(self, nodes, is_index):
         # for node in nodes:
         #     if node['node']['is_video']:
@@ -85,7 +86,7 @@ class InstagramSpider(scrapy.Spider):
         #                             "fetch_comment_count": 40,
         #                             "parent_comment_count": 24,
         #                             "has_threaded_comments": True,
-        #                         }),      
+        #                         }),
         #             }
         #             postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
         #             yield scrapy.Request(url=postUrl, callback=self.parse_video_node, meta={'delay':3})
@@ -104,7 +105,7 @@ class InstagramSpider(scrapy.Spider):
                                 "fetch_comment_count": 40,
                                 "parent_comment_count": 24,
                                 "has_threaded_comments": True,
-                            }),      
+                            }),
                 }
                 postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
                 if node['node']['is_video']:
@@ -130,7 +131,7 @@ class InstagramSpider(scrapy.Spider):
                                         "fetch_comment_count": 40,
                                         "parent_comment_count": 24,
                                         "has_threaded_comments": True,
-                                    }),      
+                                    }),
                         }
                         postUrl = (self.batchQuery + urlencode(params)).replace("+", '')
                         yield scrapy.Request(url=postUrl, callback=self.parse_video_node, meta={'delay':3})
@@ -157,7 +158,7 @@ class InstagramSpider(scrapy.Spider):
         if data["data"]["shortcode_media"].get("edge_sidecar_to_children", None) is not None:
             for await_job in self.parse_son_node(data["data"]["shortcode_media"]["edge_sidecar_to_children"]["edges"]):
                 yield await_job
-                
+
     def parse(self, response):
         html = response.body.decode('utf-8')
         doc = pq(html)

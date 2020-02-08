@@ -109,6 +109,8 @@ class CustomProxyMiddleware():
         # request.meta['proxy'] = 'http://127.0.0.1:8123'
         if PROXIES:
             request.meta['proxy'] = 'http://' + PROXIES['http']
+        else:
+            print(PROXIES*10)
         return None
 
 class CutomHeaderMiddleware():

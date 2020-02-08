@@ -27,18 +27,17 @@ DOWNLOADER_MIDDLEWARES = {
     'instagramScrapy.middlewares.CutomHeaderMiddleware':220,
     'instagramScrapy.middlewares.CutomErrorMiddleware':222,
     # 'scrapy_cloudflare_middleware.middlewares.CloudFlareMiddleware': 320,
-    
+
 }
 ITEM_PIPELINES = {
     'instagramScrapy.pipelines.InstagramscrapyPipeline':360,
-}
-PROXIES = {
-    "https":"127.0.0.1:8123",
-    "http":"127.0.0.1:8123"
-}
+
+#     "https":"127.0.0.1:7890",
+#     "http":"127.0.0.1:7890"
+# }
 
 # Default
-# PROXIES = None
+PROXIES = None
 RETRY_TIMES = 100
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36',
