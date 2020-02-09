@@ -1,4 +1,4 @@
-requests==2.22.0
-Scrapy==1.7.3
-pyquery==1.4.0
+requests
+Scrapy
+pyquery
 
