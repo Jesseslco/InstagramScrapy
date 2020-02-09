@@ -31,7 +31,8 @@ DOWNLOADER_MIDDLEWARES = {
 }
 ITEM_PIPELINES = {
     'instagramScrapy.pipelines.InstagramscrapyPipeline':360,
-
+}
+# PROXIES = {
 #     "https":"127.0.0.1:7890",
 #     "http":"127.0.0.1:7890"
 # }
